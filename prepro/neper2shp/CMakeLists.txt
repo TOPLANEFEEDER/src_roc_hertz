@@ -1,0 +1,6 @@
+file(GLOB neper2shp_HDRS "*.hpp")
+file(GLOB neper2shp_SRCS "*.cpp")
+add_executable(neper2shp neper2shp.cpp tessToshp.cpp)
+target_include_directories(neper2shp PUBLIC ${neper2shp_HDRS} ${COMMON_HEADERS})
+target_link_libraries(neper2shp librock)
+install(TARGETS neper2shp DESTINATION bin)

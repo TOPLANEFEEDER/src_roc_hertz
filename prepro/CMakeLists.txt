@@ -1,0 +1,7 @@
+add_subdirectory(lmgc90)
+add_subdirectory(genesis)
+add_subdirectory(cleanShape)
+add_subdirectory(neper2shp)
+add_subdirectory(shapesurvey)
+add_subdirectory(converters)
+add_subdirectory(FT4)

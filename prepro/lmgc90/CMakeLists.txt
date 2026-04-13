@@ -1,0 +1,6 @@
+file(GLOB fromLmgc90_HDRS "*.hpp")
+file(GLOB fromLmgc90_SRCS "*.cpp")
+add_executable(fromLmgc90 fromLmgc90.cpp lmgc90.cpp)
+target_include_directories(fromLmgc90 PUBLIC ${neper2shp_HDRS} ${COMMON_HEADERS})
+target_link_libraries(fromLmgc90 librock)
+install(TARGETS fromLmgc90 DESTINATION bin)
