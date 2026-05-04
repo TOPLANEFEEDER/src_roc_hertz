@@ -52,6 +52,7 @@ Interaction::Interaction()
       vel(),
       fn(0.0),
       ft(),
+      ft_hist(),
       mom(),
       damp(0.0),
       stick(nullptr) {}
@@ -73,6 +74,7 @@ Interaction::Interaction(const Interaction& I)
       vel(I.vel),
       fn(I.fn),
       ft(I.ft),
+      ft_hist(I.ft_hist),
       mom(I.mom),
       damp(I.damp),
       stick(I.stick) {}
@@ -94,6 +96,7 @@ Interaction::Interaction(size_t I, size_t J, int Type, size_t Isub, size_t Jsub,
       vel(),
       fn(0.0),
       ft(),
+      ft_hist(),
       mom(),
       damp(Damp),
       stick(Stick) {}
@@ -116,6 +119,7 @@ Interaction& Interaction::operator=(const Interaction& other) {
     vel = other.vel;
     fn = other.fn;
     ft = other.ft;
+    ft_hist = other.ft_hist;
     mom = other.mom;
     damp = other.damp;
     stick = other.stick;
@@ -127,6 +131,7 @@ void Interaction::deactivate() {
   dn = prev_dn = 0.0;
   fn = 0.0;
   ft.reset();
+  ft_hist.reset();
   mom.reset();
 }
 

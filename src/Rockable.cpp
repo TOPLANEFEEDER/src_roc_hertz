@@ -35,6 +35,26 @@
 
 #define CONF_VERSION_DATE "29-11-2018"
 #include "Rockable.hpp"
+#include <fstream>
+
+#ifdef PERIODIC_BOX
+// Maximum allowed box velocity components. If a component <= 0, that component is not limited.
+static vec3r g_box_vel_max;
+
+static inline double clamp_abs(double v, double vmax) {
+  if (vmax <= 0.0) return v;
+  if (v >  vmax) return  vmax;
+  if (v < -vmax) return -vmax;
+  return v;
+}
+
+static inline void clamp_box_vel(vec3r &v, const vec3r &vmax) {
+  v.x = clamp_abs(v.x, vmax.x);
+  v.y = clamp_abs(v.y, vmax.y);
+  v.z = clamp_abs(v.z, vmax.z);
+}
+#endif
+
 
 // ==============================================================================================================
 //  INITIALIZATIONS
@@ -117,6 +137,7 @@ Rockable::Rockable() {
   b.force.reset();
   b.mass = b.masstot = 0.;
   b.kn = b.coefm = b.damp = 0.;
+  g_box_vel_max.reset();
 #endif
 
 
@@ -276,6 +297,7 @@ void Rockable::saveConf(int i) {
   conf << "box_eps_dot " << b.eps_dot << '\n';//@LA
   conf << "box_damp_coef " << b.coefm << '\n';//@LA
   conf << "box_mas_Totmass " << b.mass/b.masstot << '\n';//@LA
+  conf << "box_vel_max " << g_box_vel_max << '\n';//@LA
 #endif
 
   if (bodyForce != nullptr) {
@@ -359,6 +381,7 @@ void Rockable::saveConf(int i) {
     conf << activeInteractions[i]->dn << CommBox().sep << activeInteractions[i]->pos << CommBox().sep
          << activeInteractions[i]->vel << CommBox().sep << activeInteractions[i]->fn << CommBox().sep
          << activeInteractions[i]->ft << CommBox().sep << activeInteractions[i]->mom << CommBox().sep
+         << activeInteractions[i]->ft_hist << CommBox().sep
          << activeInteractions[i]->damp << '\n';
 #else
     conf << activeInteractions[i]->dn << CommBox().sep  
@@ -366,6 +389,7 @@ void Rockable::saveConf(int i) {
          << activeInteractions[i]->lji << CommBox().sep
          << activeInteractions[i]->vel << CommBox().sep << activeInteractions[i]->fn << CommBox().sep
          << activeInteractions[i]->ft << CommBox().sep << activeInteractions[i]->mom << CommBox().sep
+         << activeInteractions[i]->ft_hist << CommBox().sep
          << activeInteractions[i]->damp << '\n';
 #endif
   }
@@ -476,6 +500,7 @@ void Rockable::loadConf(const char* name) {
   parser.kwMap["box_eps_dot"] =  __GET__(conf, b.eps_dot);//@LA
   parser.kwMap["box_damp_coef"] = __GET__(conf, b.coefm);//@LA
   parser.kwMap["box_mas_Totmass"] = __GET__(conf, b.mass);//@LA
+  parser.kwMap["box_vel_max"] = __GET__(conf, g_box_vel_max);//@LA
 #endif
 
   parser.kwMap["ParamsInInterfaces"] = __GET__(conf, ParamsInInterfaces);
@@ -724,12 +749,12 @@ void Rockable::loadConf(const char* name) {
     for (size_t k = 0; k < nb; ++k) {
 #ifndef PERIODIC_BOX
       conf >> I.i >> I.j >> I.type >> I.isub >> I.jsub >> I.n >> I.dn 
-        >> I.pos >> I.vel >> I.fn >> I.ft >> I.mom >> I.damp;
+        >> I.pos >> I.vel >> I.fn >> I.ft >> I.mom >> I.ft_hist >> I.damp;
 #else
       conf >> I.i >> I.j >> I.type >> I.isub >> I.jsub >> I.n >> I.dn 
            >> I.posI >> I.posJ 
            >> I.lji
-           >> I.vel >> I.fn >> I.ft >> I.mom >> I.damp;
+           >> I.vel >> I.fn >> I.ft >> I.mom >> I.ft_hist >> I.damp;
 #endif
       // Remark: the vector 'activeInteractions' will be filled in the call of
       // 'acceleration' at the end of this method
@@ -1685,6 +1710,7 @@ bool Rockable::forceLawAvalanches(Interaction& I) {
   if (I.dn > 0.0) {
     I.fn = 0.0;
     I.ft.reset();
+    I.ft_hist.reset();
     I.mom.reset();
     return false;
   }
@@ -1769,6 +1795,7 @@ bool Rockable::forceLawHertz(Interaction& I)
 {
   if (I.dn > 0.0) { 
     I.fn = 0.0;
+    I.ft_hist.reset();
     I.ft.reset();
     I.mom.reset();
     return false;
@@ -1795,6 +1822,7 @@ bool Rockable::forceLawHertz(Interaction& I)
 if (delta <= 0.0) {
   I.fn = 0.0;
   I.ft.reset();
+  I.ft_hist.reset();
   I.mom.reset();
   return false;
 }
@@ -1842,37 +1870,91 @@ I.fn = fne + fnv;
 if (I.fn < 0.0) I.fn = 0.0;
 
 
-  // -------- Mindlin tangential (incremental) ----------
 
+// -------- Mindlin tangential (incremental, LIGGGHTS-style Coulomb on elastic part) ----------
 
 vec3r vt = I.vel - vn * I.n;
 double kt = kt0 * delta_sqrt;
 
+double delta_prev = -I.prev_dn;
+
+if (delta_prev > 0.0 && delta > 0.0) {
+  double scale = sqrt(delta / delta_prev);
+
+
+  static std::ofstream fout("scale_debug.txt");
+
+  fout << scale << "\n";
+
+  if (scale < 1.0) {
+    I.ft_hist *= scale;
+  }
+}
+
+
+
 #ifdef FT_CORR
-vec3r ft_hist = I.ft;
-ft_hist -= cross(ft_hist, cross(I.prev_n, I.n));
-ft_hist -= cross(ft_hist, (dt_2 * (Particles[I.i].vrot + Particles[I.j].vrot) * I.n) * I.n);
+vec3r ft_hist_el = I.ft_hist;
+ft_hist_el -= cross(ft_hist_el, cross(I.prev_n, I.n));
+ft_hist_el -= cross(ft_hist_el, (dt_2 * (Particles[I.i].vrot + Particles[I.j].vrot) * I.n) * I.n);
 #else
-vec3r ft_hist = I.ft;
+vec3r ft_hist_el = I.ft_hist;
 #endif
 
-const double alpha = 1;
-vec3r ft_el = alpha * ft_hist + kt * (vt * dt);
 
+
+const double alpha = 1;
+
+// 1) elastic predictor
+vec3r ft_el = alpha * ft_hist_el + kt * (vt * dt);
+
+vec3r ft_inc = kt * (vt * dt);
+double incre = sqrt(ft_inc * ft_inc);
+double mag_vt = sqrt(vt * vt);
+
+static std::ofstream fout_dbg("tangential_debug.txt");
+
+fout_dbg
+  << t << " "
+  << incre << " "
+  << mag_vt << " "
+  << kt << "\n";
+
+
+
+// 2) Coulomb limit on elastic part
 double threshold = fabs(mu * I.fn);
 double ft_el2 = ft_el * ft_el;
 
+// 3) viscous term
+double ct = sqrt(5.0) * zeta * sqrt(kt0 * meff) * sqrt(delta_sqrt);
+vec3r ft_visc = ct * vt;
+
 if (ft_el2 >= threshold * threshold && ft_el2 > 0.0) {
-    I.ft = ft_el * (threshold / sqrt(ft_el2));
+  // slip: elastic part reaches Coulomb limit
+  ft_el *= threshold / sqrt(ft_el2);
+
+  // in slip, total force = elastic part only
+  I.ft_hist = ft_el;
+  I.ft = ft_el;
 } else {
-    double ct = sqrt(5.0) * zeta * sqrt(kt0 * meff) * sqrt(delta_sqrt);
-    vec3r ft_trial = ft_el + ct * vt;
+  // stick: include viscous part
+  I.ft_hist = ft_el;
+  I.ft = ft_el + ft_visc;
+}
 
-    double ft2 = ft_trial * ft_trial;
-    if (ft2 >= threshold * threshold && ft2 > 0.0)
-        ft_trial *= threshold / sqrt(ft2);
+static std::ofstream dbg("ft_hist_debug.txt");
 
-    I.ft = ft_trial;
+if (I.i==3 || I.j==3) {   // 只跟踪你的 top sphere (按你的Sphere4索引调整)
+    double ft_hist_mag = sqrt(I.ft_hist * I.ft_hist);
+    double ft_mag      = sqrt(I.ft * I.ft);
+
+    dbg
+      << t << " "
+      << ft_hist_mag << " "
+      << ft_mag << " "
+      << Particles[3].vrot.z
+      << "\n";
 }
   return true;
 }
@@ -1970,6 +2052,7 @@ bool Rockable::forceLawStickedLinks(Interaction& I) {
 
       I.fn = 0.0;
       I.ft.reset();
+      I.ft_hist.reset();
       I.mom.reset();
       I.stick = nullptr;
       needUpdate = true;
@@ -2000,6 +2083,7 @@ bool Rockable::forceLawStickedLinks(Interaction& I) {
     if (I.dn > 0.0) {
       I.fn = 0.0;
       I.ft.reset();
+      I.ft_hist.reset();
       I.mom.reset();
       return false;
     }
@@ -2245,6 +2329,7 @@ void Rockable::velocityVerletStep() {
 if(b.eps_dot.x !=0.) b.vel.x = b.eps_dot.x * b.hl.x; else b.vel.x += dt_2 * b.acc.x ; //@LA
 if(b.eps_dot.y !=0.) b.vel.y = b.eps_dot.y * b.hl.y; else b.vel.y += dt_2 * b.acc.y ; //@LA
 if(b.eps_dot.z !=0.) b.vel.z = b.eps_dot.z * b.hl.z; else b.vel.z += dt_2 * b.acc.z ; //@LA
+clamp_box_vel(b.vel, g_box_vel_max); //@LA box velocity limiter
 
 size_t step = (size_t)(t / dt);
 if(step%300==0)

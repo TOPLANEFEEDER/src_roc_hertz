@@ -84,6 +84,7 @@ class Interaction {
 
   double fn;  ///< Normal force (scalar value)
   vec3r ft;   ///< Tangential force (vector)
+  vec3r ft_hist;  // elastic tangential history only
   vec3r mom;  ///< Moment at the contact point
 
   double damp;                ///< Precomputed vicuous damping coefficient
