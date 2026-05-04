@@ -1,0 +1,83 @@
+<
+name Sphere1
+radius 0.001
+preCompDone y
+volume 4.18879020478639e-09
+I/m 4e-07 4e-07 4e-07
+obb.extent 0.001 0.001 0.001
+obb.center 0 0 0
+obb.e1 1 0 0
+obb.e2 0 1 0
+obb.e3 0 0 1
+OBBtreeLevel 0
+position 0 0 0
+orientation 1 0 0 0
+MCnstep 10000
+nv 1
+0 0 0
+ne 0
+nf 0
+>
+
+<
+name Sphere2
+radius 0.001
+preCompDone y
+volume 4.18879020478639e-09
+I/m 4e-07 4e-07 4e-07
+obb.extent 0.001 0.001 0.001
+obb.center 0 0 0
+obb.e1 1 0 0
+obb.e2 0 1 0
+obb.e3 0 0 1
+OBBtreeLevel 0
+position 0 0 0
+orientation 1 0 0 0
+MCnstep 10000
+nv 1
+0 0 0
+ne 0
+nf 0
+>
+
+<
+name Sphere3
+radius 0.001
+preCompDone y
+volume 4.18879020478639e-09
+I/m 4e-07 4e-07 4e-07
+obb.extent 0.001 0.001 0.001
+obb.center 0 0 0
+obb.e1 1 0 0
+obb.e2 0 1 0
+obb.e3 0 0 1
+OBBtreeLevel 0
+position 0 0 0
+orientation 1 0 0 0
+MCnstep 10000
+nv 1
+0 0 0
+ne 0
+nf 0
+>
+
+<
+name Sphere4
+radius 0.001
+preCompDone y
+volume 4.18879020478639e-09
+I/m 4e-07 4e-07 4e-07
+obb.extent 0.001 0.001 0.001
+obb.center 0 0 0
+obb.e1 1 0 0
+obb.e2 0 1 0
+obb.e3 0 0 1
+OBBtreeLevel 0
+position 0 0 0
+orientation 1 0 0 0
+MCnstep 10000
+nv 1
+0 0 0
+ne 0
+nf 0
+>
